@@ -19,6 +19,7 @@ const APP_URL           = 'https://ayopel.github.io/task-maneger';
 const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/userinfo.email',
 ].join(' ');
 
 const SHEETS = {
