@@ -2012,8 +2012,10 @@ window.addEventListener('resize', updateNavLayout);
 ──────────────────────────────────────────────────────────── */
 function appShell() {
   return {
+    appName: 'Task Tracker',
     init() {
-      // Alpine init — delegated to main App.init()
+      // App bootstrap is handled by DOMContentLoaded — nothing to do here.
+      // appName will be updated by State after Config sheet loads.
     },
   };
 }
