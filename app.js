@@ -8,10 +8,10 @@
 /* ────────────────────────────────────────────────────────────
    CONFIGURATION  (replace with real values before deploying)
 ──────────────────────────────────────────────────────────── */
-const GOOGLE_CLIENT_ID  = 'YOUR_GOOGLE_CLIENT_ID';
-const GOOGLE_API_KEY    = 'YOUR_GOOGLE_API_KEY';
-const SPREADSHEET_ID    = 'YOUR_SPREADSHEET_ID';
-const APP_URL           = 'https://your-username.github.io/your-repo';
+const GOOGLE_CLIENT_ID  = '223779188444-5h4c4k6h9jcj9usvnqm36lucr7o7fe9d.apps.googleusercontent.com';
+const GOOGLE_API_KEY    = 'AIzaSyAm8EAM7YtNTgbnNLgL1QlkNkhsYCBWlq8';
+const SPREADSHEET_ID    = '1whnfKvVknzPfxJwNGIPD6ooJ-b0DGe_u-FnCjL_x4Gw';
+const APP_URL           = 'https://ayopel.github.io/task-maneger';
 
 /* ────────────────────────────────────────────────────────────
    CONSTANTS
