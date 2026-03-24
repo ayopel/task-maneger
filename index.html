@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en" x-data="appShell()" x-init="init()">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Team Task Tracker — collaborative project management" />
+  <title x-text="appName + ' — Task Tracker'">Task Tracker</title>
+
+  <!-- Favicon (inline SVG via data URI) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f8ef7'/><path d='M8 10h16M8 16h10M8 22h13' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>" />
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Google API Client -->
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+
+  <!-- Tailwind CSS v3 CDN -->
+  <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: 'var(--color-surface)',
+            'surface-2': 'var(--color-surface-2)',
+            accent: 'var(--color-accent)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Alpine.js v3 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body x-cloak>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOAST CONTAINER
+════════════════════════════════════════════════════════════ -->
+<div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OFFLINE BANNER
+════════════════════════════════════════════════════════════ -->
+<div id="offline-banner" class="offline-banner" style="display:none" role="alert">
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+  </svg>
+  You are offline. Changes will not be saved.
+</div>
+
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════════
+       SIGN-IN SCREEN
+  ════════════════════════════════════════════════════════ -->
+  <div id="signin-screen" class="signin-screen" style="display:none">
+    <div class="card text-center" style="max-width:400px;width:100%;padding:40px 32px;">
+      <div style="margin-bottom:24px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 32 32" style="margin:0 auto 16px;">
+          <rect width="32" height="32" rx="8" fill="var(--color-accent)"/>
+          <path d="M8 10h16M8 16h10M8 22h13" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <h1 style="font-size:1.5rem;font-weight:700;margin-bottom:6px;">Task Tracker</h1>
+        <p style="color:var(--color-text-muted);font-size:0.875rem;">Sign in to access your team's workspace</p>
+      </div>
+      <div id="google-signin-btn" style="display:flex;justify-content:center;min-height:44px;"></div>
+      <p id="signin-error" style="display:none;color:var(--color-danger);font-size:0.8125rem;margin-top:16px;padding:10px;background:rgba(240,84,79,0.1);border-radius:8px;border:1px solid rgba(240,84,79,0.3);"></p>
+      <p id="signin-loading" style="display:none;color:var(--color-text-muted);font-size:0.875rem;margin-top:16px;">
+        <span class="spinner sm" style="display:inline-block;vertical-align:middle;margin-right:6px;"></span>
+        Verifying access...
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN APP (shown after auth)
+  ════════════════════════════════════════════════════════ -->
+  <div id="main-app" style="display:none;flex-direction:column;min-height:100vh;">
+
+    <!-- TOP NAV -->
+    <nav class="nav-bar">
+      <div style="max-width:1400px;margin:0 auto;padding:0 16px;height:52px;display:flex;align-items:center;gap:12px;">
+        <!-- Hamburger (mobile) -->
+        <button id="hamburger-btn" class="btn btn-ghost btn-icon" style="display:none;" aria-label="Menu" onclick="toggleMobileNav()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+
+        <!-- Brand -->
+        <a href="#/" class="nav-brand" style="text-decoration:none;" id="app-name-link">Task Tracker</a>
+
+        <!-- Nav links (desktop) -->
+        <div id="desktop-nav" style="display:flex;align-items:center;gap:2px;margin-left:8px;">
+          <a href="#/" class="nav-link" id="nav-dashboard">Dashboard</a>
+          <a href="#/settings" class="nav-link" id="nav-settings">Settings</a>
+        </div>
+
+        <div style="flex:1;"></div>
+
+        <!-- Search (desktop) -->
+        <div style="position:relative;display:flex;align-items:center;" id="nav-search-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:10px;color:var(--color-text-faint);pointer-events:none;">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="search" id="global-search" placeholder="Search tasks…" class="input" style="padding-left:32px;width:200px;height:32px;font-size:0.8125rem;" />
+        </div>
+
+        <!-- User avatar + sign out -->
+        <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
+          <div class="avatar" id="user-avatar" title="" aria-label="Signed in user"></div>
+          <button class="btn btn-ghost btn-sm" onclick="App.signOut()" title="Sign out" aria-label="Sign out">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile nav dropdown -->
+      <div id="mobile-nav" style="display:none;border-top:1px solid var(--color-border);padding:8px 16px;">
+        <a href="#/" class="nav-link" style="display:block;padding:10px;" onclick="closeMobileNav()">Dashboard</a>
+        <a href="#/settings" class="nav-link" style="display:block;padding:10px;" onclick="closeMobileNav()">Settings</a>
+        <div style="padding:10px 10px 4px;">
+          <input type="search" placeholder="Search tasks…" class="input" style="font-size:0.8125rem;" id="mobile-search" />
+        </div>
+      </div>
+    </nav>
+
+    <!-- PAGE CONTENT -->
+    <main id="page-content" style="flex:1;max-width:1400px;margin:0 auto;width:100%;padding:24px 16px;" aria-live="polite">
+      <!-- Injected by router -->
+      <div class="empty-state">
+        <div class="spinner lg"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE TEMPLATES  (hidden, cloned by JS)
+════════════════════════════════════════════════════════════ -->
+
+<!-- DASHBOARD TEMPLATE -->
+<template id="tpl-dashboard">
+  <div class="page-enter">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Projects</h1>
+        <p style="color:var(--color-text-muted);font-size:0.875rem;margin-top:2px;">Your active workspaces</p>
+      </div>
+      <a href="#/projects/new" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Project
+      </a>
+    </div>
+    <div id="dashboard-content">
+      <div class="project-grid" id="project-grid"></div>
+    </div>
+  </div>
+</template>
+
+<!-- KANBAN BOARD TEMPLATE -->
+<template id="tpl-board">
+  <div class="page-enter">
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a href="#/" class="btn btn-ghost btn-sm" style="padding:4px 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </a>
+        <div>
+          <h1 class="page-title" id="board-project-name">Loading…</h1>
+          <p style="color:var(--color-text-muted);font-size:0.8125rem;" id="board-project-desc"></p>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a id="board-activity-link" href="#" class="btn btn-secondary btn-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Activity
+        </a>
+        <button id="board-add-task-btn" class="btn btn-primary btn-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Task
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" id="board-filters" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:10px 14px;margin-bottom:16px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--color-text-faint);flex-shrink:0;">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+      </svg>
+      <input type="search" id="filter-search" placeholder="Search tasks…" class="input" style="height:30px;width:160px;font-size:0.8125rem;" />
+      <select id="filter-assignee" class="select" style="height:30px;width:auto;min-width:120px;font-size:0.8125rem;">
+        <option value="">All Assignees</option>
+      </select>
+      <select id="filter-priority" class="select" style="height:30px;width:auto;min-width:110px;font-size:0.8125rem;">
+        <option value="">All Priorities</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+      <input type="text" id="filter-label" placeholder="Label…" class="input" style="height:30px;width:120px;font-size:0.8125rem;" />
+      <input type="date" id="filter-due-from" class="input" style="height:30px;width:130px;font-size:0.8125rem;" title="Due from" />
+      <input type="date" id="filter-due-to" class="input" style="height:30px;width:130px;font-size:0.8125rem;" title="Due to" />
+      <button id="filter-clear-btn" class="btn btn-ghost btn-sm" style="font-size:0.75rem;">Clear</button>
+    </div>
+
+    <!-- Kanban columns -->
+    <div class="kanban-wrapper" id="kanban-board">
+      <!-- Columns injected by JS -->
+    </div>
+  </div>
+</template>
+
+<!-- TASK DETAIL TEMPLATE -->
+<template id="tpl-task">
+  <div class="page-enter" style="max-width:720px;margin:0 auto;">
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a id="task-back-link" href="#/" class="btn btn-ghost btn-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </a>
+        <h1 class="page-title">Task Detail</h1>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="task-save-btn" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Changes
+        </button>
+        <button id="task-delete-btn" class="btn btn-danger btn-sm" title="Delete task">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:16px;">
+      <div class="card">
+        <div style="display:grid;gap:14px;">
+          <div>
+            <label class="form-label" for="task-title-input">Title <span style="color:var(--color-danger)">*</span></label>
+            <input type="text" id="task-title-input" class="input" placeholder="Task title" />
+            <p class="form-error" id="task-title-error" style="display:none;"></p>
+          </div>
+          <div>
+            <label class="form-label" for="task-desc-input">Description</label>
+            <textarea id="task-desc-input" class="textarea" placeholder="Add more context…" rows="4"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label" for="task-status-input">Status</label>
+              <select id="task-status-input" class="select">
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" for="task-priority-input">Priority</label>
+              <select id="task-priority-input" class="select">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="form-label" for="task-due-input">Due Date</label>
+            <input type="date" id="task-due-input" class="input" />
+          </div>
+          <div>
+            <label class="form-label">Labels</label>
+            <div class="tag-input-container" id="task-labels-container">
+              <input type="text" class="tag-input-inner" id="task-labels-input" placeholder="Add label, press Enter" />
+            </div>
+          </div>
+          <div>
+            <label class="form-label">Assignees (emails)</label>
+            <div class="tag-input-container" id="task-assignees-container">
+              <input type="text" class="tag-input-inner" id="task-assignees-input" placeholder="email@example.com, press Enter" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity for this task -->
+      <div class="card" id="task-activity-section">
+        <h2 style="font-size:0.875rem;font-weight:600;margin-bottom:12px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.06em;">Activity</h2>
+        <div id="task-activity-list">
+          <div class="empty-state" style="padding:24px;">
+            <p class="text-faint" style="font-size:0.875rem;">No activity yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- NEW PROJECT TEMPLATE -->
+<template id="tpl-new-project">
+  <div class="page-enter" style="max-width:560px;margin:0 auto;">
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a href="#/" class="btn btn-ghost btn-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </a>
+        <h1 class="page-title">New Project</h1>
+      </div>
+    </div>
+    <div class="card">
+      <form id="new-project-form" style="display:grid;gap:16px;">
+        <div>
+          <label class="form-label" for="np-name">Project Name <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" id="np-name" class="input" placeholder="e.g. Website Redesign" required />
+          <p class="form-error" id="np-name-error" style="display:none;"></p>
+        </div>
+        <div>
+          <label class="form-label" for="np-desc">Description</label>
+          <textarea id="np-desc" class="textarea" placeholder="What is this project about?" rows="3"></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <a href="#/" class="btn btn-secondary">Cancel</a>
+          <button type="submit" id="np-submit-btn" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Project
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<!-- NEW TASK TEMPLATE -->
+<template id="tpl-new-task">
+  <div class="page-enter" style="max-width:600px;margin:0 auto;">
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a id="nt-back-link" href="#/" class="btn btn-ghost btn-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </a>
+        <h1 class="page-title">New Task</h1>
+      </div>
+    </div>
+    <div class="card">
+      <form id="new-task-form" style="display:grid;gap:16px;">
+        <div>
+          <label class="form-label" for="nt-title">Title <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" id="nt-title" class="input" placeholder="What needs to be done?" required />
+          <p class="form-error" id="nt-title-error" style="display:none;"></p>
+        </div>
+        <div>
+          <label class="form-label" for="nt-desc">Description</label>
+          <textarea id="nt-desc" class="textarea" placeholder="Add more context…" rows="3"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="form-label" for="nt-status">Status</label>
+            <select id="nt-status" class="select">
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="nt-priority">Priority</label>
+            <select id="nt-priority" class="select">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label" for="nt-due">Due Date</label>
+          <input type="date" id="nt-due" class="input" />
+        </div>
+        <div>
+          <label class="form-label">Labels</label>
+          <div class="tag-input-container" id="nt-labels-container">
+            <input type="text" class="tag-input-inner" id="nt-labels-input" placeholder="Add label, press Enter" />
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Assignees (emails)</label>
+          <div class="tag-input-container" id="nt-assignees-container">
+            <input type="text" class="tag-input-inner" id="nt-assignees-input" placeholder="email@example.com, press Enter" />
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <a id="nt-cancel-link" href="#/" class="btn btn-secondary">Cancel</a>
+          <button type="submit" id="nt-submit-btn" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Task
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<!-- ACTIVITY LOG TEMPLATE -->
+<template id="tpl-activity">
+  <div class="page-enter">
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a id="activity-back-link" href="#/" class="btn btn-ghost btn-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </a>
+        <h1 class="page-title">Activity Log</h1>
+      </div>
+    </div>
+    <div class="card" id="activity-container">
+      <div id="activity-list" style="display:flex;flex-direction:column;"></div>
+      <div id="activity-load-more" style="display:none;text-align:center;padding:16px;">
+        <button id="activity-load-btn" class="btn btn-secondary">Load more</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- SETTINGS TEMPLATE -->
+<template id="tpl-settings">
+  <div class="page-enter">
+    <div class="page-header">
+      <h1 class="page-title">Settings</h1>
+    </div>
+
+    <div style="display:grid;gap:24px;max-width:800px;">
+
+      <!-- Allowed Users -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="font-size:1rem;font-weight:600;">Team Members</h2>
+          <button id="settings-add-user-btn" class="btn btn-primary btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Member
+          </button>
+        </div>
+
+        <!-- Add user form (hidden by default) -->
+        <div id="add-user-form-wrap" style="display:none;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px;margin-bottom:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+            <div>
+              <label class="form-label" for="new-user-email">Email</label>
+              <input type="email" id="new-user-email" class="input" placeholder="user@example.com" />
+            </div>
+            <div>
+              <label class="form-label" for="new-user-name">Name</label>
+              <input type="text" id="new-user-name" class="input" placeholder="Full Name" />
+            </div>
+            <button id="add-user-submit-btn" class="btn btn-primary">Add</button>
+          </div>
+          <p class="form-error" id="add-user-error" style="display:none;margin-top:8px;"></p>
+        </div>
+
+        <div id="users-table-wrap">
+          <div class="spinner" style="margin:20px auto;display:block;"></div>
+        </div>
+      </div>
+
+      <!-- Archived Projects -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="font-size:1rem;font-weight:600;">Projects</h2>
+        </div>
+        <div id="settings-projects-list">
+          <div class="spinner" style="margin:20px auto;display:block;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- DELETED TASK TEMPLATE -->
+<template id="tpl-deleted-task">
+  <div class="page-enter" style="max-width:560px;margin:80px auto 0;text-align:center;">
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+      <p class="empty-state-title">This task has been deleted</p>
+      <p class="empty-state-desc">The task you're looking for no longer exists.</p>
+      <a id="deleted-task-board-link" href="#/" class="btn btn-secondary" style="margin-top:8px;">Back to Board</a>
+    </div>
+  </div>
+</template>
+
+<!-- CONFIRM DELETE MODAL -->
+<div id="confirm-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+  <div class="modal-box">
+    <h2 id="confirm-modal-title" style="font-size:1.1rem;font-weight:600;margin-bottom:10px;">Confirm Delete</h2>
+    <p id="confirm-modal-message" style="color:var(--color-text-muted);font-size:0.875rem;margin-bottom:20px;">Are you sure you want to delete this task? This cannot be undone.</p>
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button id="confirm-cancel-btn" class="btn btn-secondary">Cancel</button>
+      <button id="confirm-ok-btn" class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Application script -->
+<script src="app.js"></script>
+</body>
+</html>
