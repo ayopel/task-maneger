@@ -17,9 +17,10 @@ const APP_URL           = 'https://ayopel.github.io/task-maneger';
    CONSTANTS
 ──────────────────────────────────────────────────────────── */
 const SCOPES = [
+  'openid',
+  'email',
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/userinfo.email',
 ].join(' ');
 
 const SHEETS = {
@@ -334,7 +335,8 @@ const Auth = {
   async _getTokenEmail() {
     try {
       const resp = await fetch(
-        `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${State.accessToken}`
+        'https://www.googleapis.com/oauth2/v3/userinfo',
+        { headers: { Authorization: `Bearer ${State.accessToken}` } }
       );
       const data = await resp.json();
       return data.email || null;
